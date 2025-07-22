@@ -16,20 +16,17 @@
 
 import pandas as pd
 import os
-#from fetal_brain_qc.qc_evaluation import METRICS, METRICS_SEG
 import joblib
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from datetime import datetime
-#from fetal_brain_qc.definitions import FETMRQC20
 import json
 from fetmrqc_sr import ROOT_DIR, IQMS
 
-DATASET = os.path.join(
-    ROOT_DIR, "data", "QC_IQMs.csv"
-)  
-OUT_DIR = os.path.join(
-    ROOT_DIR, "data", "models"
-)  
+DATASET = os.path.join(ROOT_DIR, "data", "QC_IQMs.csv")
+
+OUT_DIR = os.path.join(ROOT_DIR, "data", "models")
+
+
 def load_dataset(dataset, first_iqm):
     df = pd.read_csv(dataset)
     xy_index = df.columns.tolist().index(first_iqm)
@@ -52,18 +49,18 @@ def get_rating(rating, class_threshold=1.0):
         return rating > class_threshold
 
 
-
-
 # Root of package fetmrqc_sr
-#data_folder = os.path.dirname(os.path.abspath(__file__))
+# data_folder = os.path.dirname(os.path.abspath(__file__))
 
 
 def main():
     # Parser version of the code below
     import argparse
 
-    parser = argparse.ArgumentParser("Train a FetMRQC_SR classification model.",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser = argparse.ArgumentParser(
+        "Train a FetMRQC_SR classification model.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument(
         "--dataset",
         help="Path to the csv file dataset.",
@@ -86,7 +83,7 @@ def main():
             "noise",
             "intensity_gm",
             "intensity_dgm",
-        ]
+        ],
     )
 
     parser.add_argument(
@@ -110,7 +107,9 @@ def main():
     )
 
     parser.add_argument(
-        "--out_csv", help=f"Where to save the results (default: {OUT_DIR}/<model_name>_pred.csv)", default=None
+        "--out_csv",
+        help=f"Where to save the results (default: {OUT_DIR}/<model_name>_pred.csv)",
+        default=None,
     )
 
     args = parser.parse_args()
@@ -120,12 +119,18 @@ def main():
         iqms = args.iqms_list
         print(f"Using custom IQMs: {iqms}")
 
-    out_csv = os.path.abspath(args.out_csv) if args.out_csv else os.path.join(OUT_DIR, f"{args.model_path.split('/')[-1].split('.')[0]}_pred.csv")
+    out_csv = (
+        os.path.abspath(args.out_csv)
+        if args.out_csv
+        else os.path.join(
+            OUT_DIR, f"{args.model_path.split('/')[-1].split('.')[0]}_pred.csv"
+        )
+    )
     out_dir = os.path.dirname(out_csv)
 
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
-    
+
     df = pd.read_csv(args.dataset)
     train_x, train_y = load_dataset(args.dataset, args.first_iqm)
     # Load model weights
@@ -134,11 +139,11 @@ def main():
     predictions = model.predict_proba(train_x[iqms])
     # Add the predictions to the first column
     # Prob_good
-    df.insert(1, "fetmrqc_prob_good", predictions[:,1])
-    df.insert(2, "fetmrqc_pred_good", predictions[:,1] > args.threshold)
-
+    df.insert(1, "fetmrqc_prob_good", predictions[:, 1])
+    df.insert(2, "fetmrqc_pred_good", predictions[:, 1] > args.threshold)
 
     df.to_csv(out_csv, index=False)
+
 
 if __name__ == "__main__":
     main()
