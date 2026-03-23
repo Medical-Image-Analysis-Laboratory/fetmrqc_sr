@@ -22,7 +22,7 @@ import argparse
 import pandas as pd
 from pathlib import Path
 from fetal_brain_utils import csv_to_list, print_title
-from fetmrqc_sr.metrics import SRMetrics
+from fetmrqc_sr.metrics import SRMetrics, BOUNTI_LABELS, FETA_LABELS, DHCP_LABELS
 from concurrent.futures import ProcessPoolExecutor, as_completed
 import time
 import sys
@@ -30,17 +30,25 @@ import sys
 EXCEPTION_STATUS = None
 
 
-def process_subject(idx, run, verbose, robust, correct_bias, metrics=None):
+def process_subject(idx, run, verbose, robust, correct_bias, metrics=None, seg_method="bounti"):
     global EXCEPTION_STATUS
     while not EXCEPTION_STATUS:
         try:
             name = Path(run["im"]).name
             sub = run["sub"]
             print(f"Processing subject {sub} ({name}) (PID: {os.getpid()})")
+            if seg_method == "bounti":
+                map_seg = BOUNTI_LABELS
+            elif seg_method == "feta":
+                map_seg = FETA_LABELS
+            elif seg_method == "dhcp":
+                map_seg = DHCP_LABELS
+            
             sr_metrics = SRMetrics(
                 verbose=verbose,
                 robust_preprocessing=robust,
                 correct_bias=correct_bias,
+                map_seg=map_seg,
                 counter=idx,
             )
             if metrics is not None:
@@ -115,6 +123,13 @@ def main(argv=None):
         default=False,
         help="Enable bias field correction.",
     )
+
+    p.add_argument(
+        "--seg_label_scheme",
+        choices=["bounti", "feta", "dhcp"],
+        default="bounti",
+        help="Segmentation label scheme used for segmentation.",
+    )
     args = p.parse_args(argv)
     df_base = pd.read_csv(args.bids_csv)
     df_base = df_base.set_index("name")
@@ -145,7 +160,7 @@ def main(argv=None):
         futures = []
         for idx, run in df_run.iterrows():
             futures.append(
-                executor.submit(process_subject, idx, run, args.verbose, args.robust_prepro, args.correct_bias, args.metrics)
+                executor.submit(process_subject, idx, run, args.verbose, args.robust_prepro, args.correct_bias, args.metrics, args.seg_label_scheme)
             )
         # process task results as they are available
         for i, future in enumerate(as_completed(futures)):

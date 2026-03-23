@@ -57,7 +57,7 @@ import warnings
 SKIMAGE_FCT = [fct for _, fct in getmembers(skimage.filters, isfunction)]
 SEGM = {"CSF": 1, "GM": 2, "WM": 3, "BS": 4, "CBM": 5}
 # Re-mapping to do for FeTA labels: ventricles as CSF, dGM as GM.
-FETA_LABELS = [None, 1, 2, 3, 1, None, 2, None, None]
+FETA_LABELS = [None, 1, 2, 3, 1, 5, 2, 4]
 segm_names = list(SEGM.keys())
 
 BOUNTI_LABELS = [
@@ -80,7 +80,21 @@ BOUNTI_LABELS = [
     2,
     2,
     1,
+    1
+]
+
+
+DHCP_LABELS = [
+    None,
     1,
+    2,
+    3,
+    None,
+    1,
+    5,
+    2,
+    4,
+    2
 ]
 
 
@@ -298,6 +312,7 @@ class SRMetrics:
         args_dict,
     ):
         """Evaluate a metric and update the results dictionary."""
+        
         try:
             out = self.metrics_func[metric](**args_dict)
         except Exception:
@@ -337,10 +352,11 @@ class SRMetrics:
         self._sstats = None
 
         resample_to = 0.8
+        
         imagec, maskc, seg_dict = self._load_and_prep_nifti(
             sr_path, mask_path, seg_path, resample_to
         )
-
+        
         args_dict = {
             "image": imagec,
             "mask": maskc,
@@ -423,6 +439,7 @@ class SRMetrics:
                 seg_remapped,
                 seg_ni.affine,
             )
+            
         else:
             raise ValueError(
                 f"Unknown file format for segmentation file {seg_path}"
@@ -444,7 +461,10 @@ class SRMetrics:
             warn("Divide by zero (a_min == a_max)", Warning)
             if b_min is None:
                 return im - a_min
-            return im - a_min + b_min
+            elif a_max == 0.0:
+                a_max = np.max(im)
+            else:
+                return im - a_min + b_min
 
         im = (im - a_min) / (a_max - a_min)
         if (b_min is not None) and (b_max is not None):
@@ -501,6 +521,7 @@ class SRMetrics:
         
         
         if robust:
+            imgv = img[mask_ni.get_fdata()>0]
             img = self._scale_intensity_percentiles(
                 img, 0.5, 99.5, 0, 1, clip=True
             )
@@ -522,6 +543,9 @@ class SRMetrics:
                 )
                 mask_ni = resample_img(
                     mask_ni, target_affine=new_affine, interpolation="nearest"
+                )
+                seg = ni.Nifti1Image(
+                    seg.get_fdata(), im_ni.affine, im_ni.header
                 )
                 seg = resample_img(
                     seg, target_affine=new_affine, interpolation="nearest"
@@ -571,6 +595,7 @@ class SRMetrics:
         )
         mask_ni = ni.load(mask_path)
         seg_ni = ni.load(seg_path)
+
         mask = np.clip(
             mask_ni.get_fdata() + (seg_ni.get_fdata() > 0).astype(int), 0, 1
         )
