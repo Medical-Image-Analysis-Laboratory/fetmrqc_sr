@@ -587,6 +587,7 @@ class SRMetrics:
 
     def _load_and_prep_nifti(self, sr_path, mask_path, seg_path, resample_to):
         image_ni = ni.load(sr_path)
+        
         # zero_fill the Nan values
         image_ni = ni.Nifti1Image(
             np.nan_to_num(image_ni.get_fdata()),
@@ -599,6 +600,7 @@ class SRMetrics:
         mask = np.clip(
             mask_ni.get_fdata() + (seg_ni.get_fdata() > 0).astype(int), 0, 1
         )
+        mask = squeeze_dim(mask, -1)
         mask_ni = ni.Nifti1Image(mask, mask_ni.affine, mask_ni.header)
         imagec, maskc, seg_dict = self._preprocess_nifti(
             image_ni, mask_ni, seg_path, resample_to, robust=self.robust_prepro, bias_corr=self.correct_bias
